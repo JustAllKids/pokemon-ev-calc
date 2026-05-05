@@ -69,7 +69,7 @@ export default function App() {
         } else break;
       }
 
-      // 【新增】智能兜底回收机制：如果为了合法扣减导致总计 504，自动将闲置的 4 点加到防/血空余项上，达到标准 508
+      // 智能兜底回收机制：补齐 508
       let newTotal = Object.values(current).reduce((a, b) => a + b, 0);
       if (newTotal === 504) {
         const preferKeys = ['spd', 'def', 'hp', 'spe'];
@@ -156,6 +156,8 @@ export default function App() {
 
     let resultLines = [];
     let firstLine = nameWithGender;
+    
+    // 处理名字和道具
     if (rawTemplate) {
       const originalFirstLine = rawTemplate.split('\n')[0];
       if (originalFirstLine.includes('@')) {
@@ -164,16 +166,42 @@ export default function App() {
       }
     }
     resultLines.push(firstLine);
+    
     if (isShiny) resultLines.push('Shiny: Yes');
+    
+    // 【修改点】智能插入 EVs 和 IVs
     if (rawTemplate) {
       const otherLines = rawTemplate.split('\n').slice(1).filter(l => {
         const lower = l.toLowerCase().trim();
         return l.trim() !== '' && !lower.startsWith('evs:') && !lower.startsWith('ivs:') && !lower.startsWith('shiny:');
       });
-      resultLines.push(...otherLines);
+
+      // 寻找 "Ability:" 行的位置
+      const abilityIndex = otherLines.findIndex(l => l.toLowerCase().startsWith('ability:'));
+
+      if (abilityIndex !== -1) {
+        // 如果找到了特性行，在特性行正下方插入努力值和个体值
+        let insertIndex = abilityIndex + 1;
+        if (evLine) {
+            otherLines.splice(insertIndex, 0, evLine);
+            insertIndex++;
+        }
+        if (ivLine) {
+            otherLines.splice(insertIndex, 0, ivLine);
+        }
+        resultLines.push(...otherLines);
+      } else {
+        // 如果没有找到特性行，默认插在头部（标准格式）
+        if (evLine) resultLines.push(evLine);
+        if (ivLine) resultLines.push(ivLine);
+        resultLines.push(...otherLines);
+      }
+    } else {
+      // 没有任何模板时的纯净输出
+      if (evLine) resultLines.push(evLine);
+      if (ivLine) resultLines.push(ivLine);
     }
-    if (evLine) resultLines.push(evLine);
-    if (ivLine) resultLines.push(ivLine);
+    
     return resultLines.join('\n').trim();
   };
 
@@ -216,7 +244,7 @@ export default function App() {
             <h1 className="font-bold text-lg tracking-tight">宝可梦能力转换器 <span className="text-blue-600 text-sm ml-1 font-medium">冠军版 v2.2</span></h1>
           </div>
           <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-            <Info className="w-3.5 h-3.5" /> 自动适配《冠军》32/32/2 系统
+            <Info className="w-3.5 h-3.5" /> 你4我8他12
           </div>
         </div>
       </nav>
@@ -310,7 +338,7 @@ export default function App() {
               <div className="relative z-10">
                 <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                   <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
-                  转换结果 (朱紫 EVs)
+                  转换结果 (传统 EVs)
                 </h2>
                 
                 <div className="grid grid-cols-2 gap-4 mb-8">
