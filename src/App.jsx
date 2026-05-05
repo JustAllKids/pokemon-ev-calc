@@ -244,7 +244,7 @@ export default function App() {
             <h1 className="font-bold text-lg tracking-tight">宝可梦能力转换器 <span className="text-blue-600 text-sm ml-1 font-medium">冠军版 v2.2</span></h1>
           </div>
           <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
-            <Info className="w-3.5 h-3.5" /> 你4我8他12
+            <Info className="w-3.5 h-3.5" /> JustAllKids
           </div>
         </div>
       </nav>
