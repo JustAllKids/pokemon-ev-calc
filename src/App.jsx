@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Minus, Square, X, Calculator, RefreshCcw, Swords, Shield, Zap, Download, Copy, Check } from 'lucide-react';
+import { Calculator, RefreshCcw, Swords, Shield, Zap, Download, Copy, Check, Info } from 'lucide-react';
 
-// 能力值名称映射
 const statNames = {
   hp: 'HP (血量)',
   atk: 'Atk (物攻)',
@@ -14,26 +13,24 @@ const statNames = {
 const shortStatNames = { hp: 'HP', atk: 'Atk', def: 'Def', spa: 'SpA', spd: 'SpD', spe: 'Spe' };
 
 /**
- * Windows 11 风格的开关组件
+ * 现代风格的开关组件
  */
-const WinToggle = ({ checked, onChange, label }) => (
-  <label className="flex items-center justify-between cursor-pointer group">
-    <span className="text-sm text-gray-700 mr-4">{label}</span>
+const ModernToggle = ({ checked, onChange, label }) => (
+  <label className="flex items-center justify-between cursor-pointer group py-2">
+    <span className="text-sm text-gray-600 font-medium">{label}</span>
     <div className="relative">
       <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
-      <div className={`block w-10 h-5 rounded-full transition-colors ${checked ? 'bg-blue-600' : 'bg-gray-300 border border-gray-400'}`}></div>
-      <div className={`absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition-transform ${checked ? 'translate-x-5' : ''}`}></div>
+      <div className={`block w-11 h-6 rounded-full transition-colors ${checked ? 'bg-blue-600' : 'bg-gray-200'}`}></div>
+      <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${checked ? 'translate-x-5' : ''} shadow-sm`}></div>
     </div>
   </label>
 );
 
 export default function App() {
-  // --- 基础状态 ---
   const [pokemonName, setPokemonName] = useState('振翼发');
   const [cps, setCps] = useState({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
   const [evs, setEvs] = useState({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
   
-  // --- 配置项 ---
   const [isShiny, setIsShiny] = useState(false);
   const [enforceLegal, setEnforceLegal] = useState(true);
   const [zeroAtk, setZeroAtk] = useState(false);
@@ -43,24 +40,18 @@ export default function App() {
   const [rawTemplate, setRawTemplate] = useState('');
   const [gender, setGender] = useState(''); 
 
-  // 计算已分配的总能力点 (上限 66)
   const totalCp = Object.values(cps).reduce((a, b) => a + b, 0);
 
-  /**
-   * 核心算法：将“冠军”加点转换为“朱紫”努力值
-   */
   useEffect(() => {
     let raw = {};
     let totalEvs = 0;
     Object.keys(cps).forEach(k => {
       let cp = cps[k];
-      // 转换公式：1点=4EV，之后每点+8EV。32点=252EV。
       let ev = cp === 0 ? 0 : (cp >= 32 ? 252 : cp * 8 - 4);
       raw[k] = ev;
       totalEvs += ev;
     });
 
-    // 自动平衡以符合 510 努力值上限
     if (enforceLegal && totalEvs > 510) {
       let current = { ...raw };
       while (Object.values(current).reduce((a, b) => a + b, 0) > 510) {
@@ -103,8 +94,6 @@ export default function App() {
     if (!importText.trim()) return;
     setRawTemplate(importText);
     let newCps = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
-    
-    // 提取名字与性别
     const nameMatch = importText.match(/^([^@\n]+)/);
     if (nameMatch) {
       let namePart = nameMatch[1].trim();
@@ -117,8 +106,6 @@ export default function App() {
       }
       setPokemonName(namePart);
     }
-
-    // 提取努力值
     const evMatch = importText.match(/EVs:\s*(.+?)(?:\n|$)/i);
     if (evMatch) {
       const evString = evMatch[1];
@@ -140,28 +127,20 @@ export default function App() {
     setCps(newCps);
   };
 
-  /**
-   * 生成符合 PKHeX/Showdown 格式的代码
-   */
   const generateCode = () => {
     let evStrings = [];
     Object.keys(evs).forEach(k => {
       if (evs[k] > 0) evStrings.push(`${evs[k]} ${shortStatNames[k]}`);
     });
     const evLine = evStrings.length > 0 ? `EVs: ${evStrings.join(' / ')}` : '';
-    
     let ivStrings = [];
     if (zeroAtk) ivStrings.push('0 Atk');
     if (zeroSpe) ivStrings.push('0 Spe');
     const ivLine = ivStrings.length > 0 ? `IVs: ${ivStrings.join(' / ')}` : '';
-    
     let nameWithGender = pokemonName || 'Pokemon';
     if (gender) nameWithGender += ` (${gender})`;
 
-    // 构建结果
     let resultLines = [];
-    
-    // 1. 第一行处理 (保留道具)
     let firstLine = nameWithGender;
     if (rawTemplate) {
       const originalFirstLine = rawTemplate.split('\n')[0];
@@ -171,26 +150,16 @@ export default function App() {
       }
     }
     resultLines.push(firstLine);
-
-    // 2. 闪光状态
     if (isShiny) resultLines.push('Shiny: Yes');
-
-    // 3. 处理模版中的招式/特性/性格 (过滤掉冲突项)
     if (rawTemplate) {
       const otherLines = rawTemplate.split('\n').slice(1).filter(l => {
         const lower = l.toLowerCase().trim();
-        return l.trim() !== '' && 
-               !lower.startsWith('evs:') && 
-               !lower.startsWith('ivs:') && 
-               !lower.startsWith('shiny:');
+        return l.trim() !== '' && !lower.startsWith('evs:') && !lower.startsWith('ivs:') && !lower.startsWith('shiny:');
       });
       resultLines.push(...otherLines);
     }
-
-    // 4. 追加新的努力值与个体值
     if (evLine) resultLines.push(evLine);
     if (ivLine) resultLines.push(ivLine);
-
     return resultLines.join('\n').trim();
   };
 
@@ -216,129 +185,192 @@ export default function App() {
         document.execCommand("copy");
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
-      } catch (e) {
-        console.error('Copy failed');
-      }
+      } catch (e) { console.error('Copy failed'); }
       document.body.removeChild(textArea);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#f3f3f3] flex items-center justify-center p-4 sm:p-8 font-sans text-gray-900">
-      <div className="bg-white/90 backdrop-blur-xl rounded-xl shadow-[0_12px_40px_rgb(0,0,0,0.12)] border border-white/60 w-full max-w-5xl overflow-hidden flex flex-col h-[85vh] md:h-auto">
-        
-        {/* Title Bar */}
-        <div className="h-10 bg-white/50 border-b border-gray-200 flex items-center justify-between select-none shrink-0">
-          <div className="flex items-center pl-4 text-xs text-gray-700 font-medium">
-            <Calculator className="w-4 h-4 mr-2 text-blue-600" />
-            宝可梦能力转换器 - 冠军版 v2.2
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-12">
+      {/* 现代导航栏 */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-1.5 rounded-lg shadow-blue-200 shadow-lg">
+              <Calculator className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="font-bold text-lg tracking-tight">宝可梦能力转换器 <span className="text-blue-600 text-sm ml-1 font-medium">冠军版 v2.2</span></h1>
           </div>
-          <div className="flex h-full">
-            <button className="px-4 hover:bg-gray-200 transition-colors flex items-center justify-center"><Minus className="w-4 h-4 text-gray-600" /></button>
-            <button className="px-4 hover:bg-gray-200 transition-colors flex items-center justify-center"><Square className="w-3 h-3 text-gray-600" /></button>
-            <button className="px-4 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center"><X className="w-4 h-4 text-gray-600" /></button>
+          <div className="hidden md:flex items-center gap-4 text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full">
+            <Info className="w-3.5 h-3.5" /> 自动适配《冠军》32/32/2 系统
           </div>
         </div>
+      </nav>
 
-        <div className="flex flex-col md:flex-row p-6 gap-6 overflow-y-auto">
-          {/* Left Column */}
-          <div className="flex-1 flex flex-col space-y-6">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800">《冠军》能力点分配</h2>
-                <div className={`text-xs font-bold px-2 py-1 rounded-full ${totalCp === 66 ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-700'}`}>
-                  已分配: {totalCp} / 66
+      <main className="max-w-6xl mx-auto px-4 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* 左侧主要控制区 */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* 能力点分配卡片 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">能力点加点 (CP)</h2>
+                  <p className="text-xs text-slate-400 mt-1">根据《冠军》游戏内的 66 点上限进行分配</p>
+                </div>
+                <div className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm transition-all ${totalCp === 66 ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-200' : 'bg-blue-50 text-blue-700'}`}>
+                  {totalCp} / 66 <span className="text-[10px] ml-1 uppercase opacity-60">Used</span>
                 </div>
               </div>
 
-              <div className="flex gap-2 mb-6">
-                <button onClick={() => applyPreset('physical')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-2 rounded-md transition-colors flex justify-center items-center">
-                  <Swords className="w-3 h-3 mr-1"/> 物攻极速
+              {/* 快速预设按钮组 */}
+              <div className="grid grid-cols-3 gap-2 mb-8">
+                <button onClick={() => applyPreset('physical')} className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95 group">
+                  <Swords className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" />
+                  <span className="text-xs font-semibold">物攻极速</span>
                 </button>
-                <button onClick={() => applyPreset('special')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-2 rounded-md transition-colors flex justify-center items-center">
-                  <Zap className="w-3 h-3 mr-1"/> 特攻极速
+                <button onClick={() => applyPreset('special')} className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95 group">
+                  <Zap className="w-4 h-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                  <span className="text-xs font-semibold">特攻极速</span>
                 </button>
-                <button onClick={() => applyPreset('trickroom')} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs py-2 rounded-md transition-colors flex justify-center items-center">
-                  <Shield className="w-3 h-3 mr-1"/> 空间打手
+                <button onClick={() => applyPreset('trickroom')} className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95 group">
+                  <Shield className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" />
+                  <span className="text-xs font-semibold">空间低速</span>
                 </button>
               </div>
 
-              <div className="space-y-4">
+              {/* 滑动条列表 */}
+              <div className="space-y-6">
                 {Object.keys(statNames).map((stat) => (
-                  <div key={stat} className="flex items-center gap-4">
-                    <div className="w-24 text-sm font-medium text-gray-600">{statNames[stat]}</div>
-                    <input type="range" min="0" max="32" value={cps[stat]} onChange={(e) => handleCpChange(stat, e.target.value)} className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-                    <input type="number" min="0" max="32" value={cps[stat]} onChange={(e) => handleCpChange(stat, e.target.value)} className="w-14 text-center text-sm border border-gray-300 rounded-md py-1 bg-white focus:ring-2 focus:ring-blue-500 outline-none" />
-                  </div>
-                ))}
-              </div>
-
-              <button onClick={() => {setCps({hp:0, atk:0, def:0, spa:0, spd:0, spe:0}); setRawTemplate(''); setImportText('');}} className="mt-6 flex items-center justify-center w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-2 border border-dashed border-gray-300 rounded-lg">
-                <RefreshCcw className="w-3 h-3 mr-2" /> 清空并重置
-              </button>
-            </div>
-
-            <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
-              <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center"><Download className="w-4 h-4 mr-2" /> 模版快速导入</h3>
-              <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="在此粘贴 PKHeX/Showdown 代码..." className="w-full h-24 text-xs p-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white/80 resize-none font-mono" />
-              <button onClick={handleImport} className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-xs py-2.5 rounded-lg transition-all font-bold shadow-sm">解析并同步参数</button>
-            </div>
-          </div>
-
-          {/* Right Column */}
-          <div className="flex-1 flex flex-col space-y-6">
-            <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">《朱紫》转换结果</h2>
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                {Object.keys(evs).map((stat) => (
-                  <div key={stat} className="bg-white border border-gray-200 p-3 rounded-lg shadow-sm">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold mb-1">{shortStatNames[stat]}</div>
-                    <div className="text-xl font-black text-gray-800">{evs[stat]}</div>
-                    <div className="w-full bg-gray-100 h-1 mt-2 rounded-full overflow-hidden">
-                      <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${(evs[stat] / 252) * 100}%` }}></div>
+                  <div key={stat} className="group">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-sm font-bold text-slate-600">{statNames[stat]}</label>
+                      <span className="text-sm font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{cps[stat]}</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <input 
+                        type="range" min="0" max="32" value={cps[stat]} 
+                        onChange={(e) => handleCpChange(stat, e.target.value)}
+                        className="flex-1 h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                      />
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="space-y-4 pt-4 border-t border-gray-200">
-                <div className="flex items-center gap-3">
-                  <input type="text" value={pokemonName} onChange={(e) => setPokemonName(e.target.value)} placeholder="宝可梦名" className="flex-1 border border-gray-300 rounded-lg py-1.5 px-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" />
-                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-24 border border-gray-300 rounded-lg py-1.5 px-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white cursor-pointer">
-                    <option value="">性别: 默认</option>
-                    <option value="M">雄性 (M)</option>
-                    <option value="F">雌性 (F)</option>
-                  </select>
+              <button 
+                onClick={() => {setCps({hp:0, atk:0, def:0, spa:0, spd:0, spe:0}); setRawTemplate(''); setImportText('');}}
+                className="mt-8 flex items-center justify-center w-full gap-2 py-3 text-sm font-medium text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all border border-dashed border-slate-200"
+              >
+                <RefreshCcw className="w-4 h-4" /> 重置所有数值
+              </button>
+            </section>
+
+            {/* 导入区 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+              <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <Download className="w-4 h-4 text-blue-600" /> 从外部代码导入
+              </h3>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                placeholder="在此粘贴 Showdown 或 PKHeX 导出的文本..."
+                className="w-full h-32 text-xs p-4 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none font-mono leading-relaxed"
+              />
+              <button
+                onClick={handleImport}
+                className="w-full mt-4 bg-slate-900 hover:bg-black text-white text-sm py-3 rounded-xl transition-all font-bold shadow-lg shadow-slate-200"
+              >
+                解析并同步参数
+              </button>
+            </section>
+          </div>
+
+          {/* 右侧结果展示区 */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            {/* 转换结果卡片 */}
+            <section className="bg-slate-900 rounded-2xl shadow-xl p-6 text-white overflow-hidden relative">
+              <div className="relative z-10">
+                <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+                  <span className="w-2 h-6 bg-blue-500 rounded-full"></span>
+                  转换结果 (朱紫 EVs)
+                </h2>
+                
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  {Object.keys(evs).map((stat) => (
+                    <div key={stat} className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10">
+                      <div className="text-[10px] uppercase font-bold text-white/40 tracking-widest">{shortStatNames[stat]}</div>
+                      <div className="text-2xl font-black mt-1 tracking-tight">{evs[stat]}</div>
+                      <div className="w-full bg-white/10 h-1.5 mt-3 rounded-full overflow-hidden">
+                        <div className="bg-blue-400 h-full transition-all duration-700 ease-out shadow-[0_0_8px_rgba(96,165,250,0.5)]" style={{ width: `${(evs[stat] / 252) * 100}%` }}></div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="space-y-2">
-                  <WinToggle label="包含闪光代码 (Shiny: Yes)" checked={isShiny} onChange={() => setIsShiny(!isShiny)} />
-                  <WinToggle label="510 努力值合法化修正" checked={enforceLegal} onChange={() => setEnforceLegal(!enforceLegal)} />
-                  <WinToggle label="0 物攻个体值 (防移花接木)" checked={zeroAtk} onChange={() => setZeroAtk(!zeroAtk)} />
-                  <WinToggle label="0 速度个体值 (重空间队)" checked={zeroSpe} onChange={() => setZeroSpe(!zeroSpe)} />
+
+                <div className="space-y-4 pt-6 border-t border-white/10">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" value={pokemonName} onChange={(e) => setPokemonName(e.target.value)}
+                        placeholder="宝可梦名"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm focus:bg-white/10 outline-none transition-all"
+                      />
+                      <select
+                        value={gender} onChange={(e) => setGender(e.target.value)}
+                        className="w-28 bg-white/5 border border-white/10 rounded-xl py-2.5 px-3 text-sm focus:bg-white/10 outline-none cursor-pointer"
+                      >
+                        <option value="" className="text-slate-900">性别: 无</option>
+                        <option value="M" className="text-slate-900">雄性 (M)</option>
+                        <option value="F" className="text-slate-900">雌性 (F)</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1 px-1">
+                      <ModernToggle label="✨ 包含闪光标记" checked={isShiny} onChange={() => setIsShiny(!isShiny)} />
+                      <ModernToggle label="⚖️ 510 努力值合法化" checked={enforceLegal} onChange={() => setEnforceLegal(!enforceLegal)} />
+                      <ModernToggle label="🛡️ 0 物攻个体值" checked={zeroAtk} onChange={() => setZeroAtk(!zeroAtk)} />
+                      <ModernToggle label="⏳ 0 速度个体值" checked={zeroSpe} onChange={() => setZeroSpe(!zeroSpe)} />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+              {/* 背景装饰 */}
+              <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-blue-600/20 blur-[60px] rounded-full"></div>
+            </section>
 
-            <div className="flex flex-col grow">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-gray-700">预览与导出指令</span>
+            {/* 复制指令卡片 */}
+            <section className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col grow">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-800 tracking-tight">预览与导出指令</h3>
                 <button 
                   onClick={copyToClipboard}
-                  className="flex items-center text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all shadow-md active:scale-95"
+                  className={`flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-md active:scale-95 ${copySuccess ? 'bg-green-500 text-white shadow-green-200' : 'bg-blue-600 text-white shadow-blue-200 hover:bg-blue-700'}`}
                 >
                   {copySuccess ? (
-                    <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
                   ) : (
-                    <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
                   )}
-                  {copySuccess ? '复制成功' : '复制指令'}
+                  {copySuccess ? '已复制' : '复制 PKHeX 指令'}
                 </button>
               </div>
-              <textarea readOnly value={generateCode()} className="w-full h-32 bg-gray-900 text-gray-300 font-mono text-xs p-4 rounded-xl border border-gray-800 shadow-inner resize-none focus:outline-none" />
-            </div>
+              <textarea 
+                readOnly 
+                value={generateCode()}
+                className="w-full h-48 bg-slate-50 text-slate-600 font-mono text-[11px] p-5 rounded-xl border border-slate-100 shadow-inner resize-none focus:outline-none leading-relaxed"
+              />
+            </section>
+
           </div>
         </div>
-      </div>
+      </main>
+      
+      <footer className="max-w-6xl mx-auto px-4 mt-12 text-center">
+        <p className="text-slate-400 text-xs font-medium">Built for Pokémon: Champions 2026. Happy Battling!</p>
+      </footer>
     </div>
   );
 }
