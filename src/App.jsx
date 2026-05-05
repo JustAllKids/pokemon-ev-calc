@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Minus, Square, X, Calculator, RefreshCcw, Swords, Shield, Zap, Download, Copy, Check } from 'lucide-react';
 
+// 能力值名称映射
 const statNames = {
   hp: 'HP (血量)',
   atk: 'Atk (物攻)',
@@ -13,7 +14,7 @@ const statNames = {
 const shortStatNames = { hp: 'HP', atk: 'Atk', def: 'Def', spa: 'SpA', spd: 'SpD', spe: 'Spe' };
 
 /**
- * Win11 风格开关组件
+ * Windows 11 风格的开关组件
  */
 const WinToggle = ({ checked, onChange, label }) => (
   <label className="flex items-center justify-between cursor-pointer group">
@@ -27,10 +28,12 @@ const WinToggle = ({ checked, onChange, label }) => (
 );
 
 export default function App() {
+  // --- 基础状态 ---
   const [pokemonName, setPokemonName] = useState('振翼发');
   const [cps, setCps] = useState({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
   const [evs, setEvs] = useState({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
   
+  // --- 配置项 ---
   const [isShiny, setIsShiny] = useState(false);
   const [enforceLegal, setEnforceLegal] = useState(true);
   const [zeroAtk, setZeroAtk] = useState(false);
@@ -40,18 +43,24 @@ export default function App() {
   const [rawTemplate, setRawTemplate] = useState('');
   const [gender, setGender] = useState(''); 
 
+  // 计算已分配的总能力点 (上限 66)
   const totalCp = Object.values(cps).reduce((a, b) => a + b, 0);
 
+  /**
+   * 核心算法：将“冠军”加点转换为“朱紫”努力值
+   */
   useEffect(() => {
     let raw = {};
     let totalEvs = 0;
     Object.keys(cps).forEach(k => {
       let cp = cps[k];
+      // 转换公式：1点=4EV，之后每点+8EV。32点=252EV。
       let ev = cp === 0 ? 0 : (cp >= 32 ? 252 : cp * 8 - 4);
       raw[k] = ev;
       totalEvs += ev;
     });
 
+    // 自动平衡以符合 510 努力值上限
     if (enforceLegal && totalEvs > 510) {
       let current = { ...raw };
       while (Object.values(current).reduce((a, b) => a + b, 0) > 510) {
@@ -94,6 +103,8 @@ export default function App() {
     if (!importText.trim()) return;
     setRawTemplate(importText);
     let newCps = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+    
+    // 提取名字与性别
     const nameMatch = importText.match(/^([^@\n]+)/);
     if (nameMatch) {
       let namePart = nameMatch[1].trim();
@@ -106,6 +117,8 @@ export default function App() {
       }
       setPokemonName(namePart);
     }
+
+    // 提取努力值
     const evMatch = importText.match(/EVs:\s*(.+?)(?:\n|$)/i);
     if (evMatch) {
       const evString = evMatch[1];
@@ -127,39 +140,58 @@ export default function App() {
     setCps(newCps);
   };
 
+  /**
+   * 生成符合 PKHeX/Showdown 格式的代码
+   */
   const generateCode = () => {
     let evStrings = [];
     Object.keys(evs).forEach(k => {
       if (evs[k] > 0) evStrings.push(`${evs[k]} ${shortStatNames[k]}`);
     });
     const evLine = evStrings.length > 0 ? `EVs: ${evStrings.join(' / ')}` : '';
+    
     let ivStrings = [];
     if (zeroAtk) ivStrings.push('0 Atk');
     if (zeroSpe) ivStrings.push('0 Spe');
     const ivLine = ivStrings.length > 0 ? `IVs: ${ivStrings.join(' / ')}` : '';
+    
     let nameWithGender = pokemonName || 'Pokemon';
     if (gender) nameWithGender += ` (${gender})`;
 
+    // 构建结果
+    let resultLines = [];
+    
+    // 1. 第一行处理 (保留道具)
+    let firstLine = nameWithGender;
     if (rawTemplate) {
-      let lines = rawTemplate.split('\n');
-      // 替换第一行（名字）
-      lines[0] = lines[0].replace(/^([^@]+)/, (match) => {
-          return match.includes('@') ? `${nameWithGender} ` : nameWithGender;
+      const originalFirstLine = rawTemplate.split('\n')[0];
+      if (originalFirstLine.includes('@')) {
+        const item = originalFirstLine.split('@')[1].trim();
+        firstLine += ` @ ${item}`;
+      }
+    }
+    resultLines.push(firstLine);
+
+    // 2. 闪光状态
+    if (isShiny) resultLines.push('Shiny: Yes');
+
+    // 3. 处理模版中的招式/特性/性格 (过滤掉冲突项)
+    if (rawTemplate) {
+      const otherLines = rawTemplate.split('\n').slice(1).filter(l => {
+        const lower = l.toLowerCase().trim();
+        return l.trim() !== '' && 
+               !lower.startsWith('evs:') && 
+               !lower.startsWith('ivs:') && 
+               !lower.startsWith('shiny:');
       });
-      // 移除旧的 EVs/IVs/Shiny
-      lines = lines.filter(l => !l.startsWith('EVs:') && !l.startsWith('IVs:') && !l.startsWith('Shiny:'));
-      // 插入新的
-      if (isShiny) lines.splice(1, 0, 'Shiny: Yes');
-      if (evLine) lines.push(evLine);
-      if (ivLine) lines.push(ivLine);
-      return lines.join('\n').trim();
+      resultLines.push(...otherLines);
     }
 
-    let code = `${nameWithGender}\n`;
-    if (isShiny) code += `Shiny: Yes\n`;
-    if (evLine) code += `${evLine}\n`;
-    if (ivLine) code += `${ivLine}\n`;
-    return code.trim();
+    // 4. 追加新的努力值与个体值
+    if (evLine) resultLines.push(evLine);
+    if (ivLine) resultLines.push(ivLine);
+
+    return resultLines.join('\n').trim();
   };
 
   const copyToClipboard = async () => {
@@ -170,14 +202,13 @@ export default function App() {
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
       } else {
-        throw new Error('Clipboard API unavailable');
+        throw new Error();
       }
     } catch (err) {
       const textArea = document.createElement("textarea");
       textArea.value = code;
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
-      textArea.style.top = "0";
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
@@ -186,7 +217,7 @@ export default function App() {
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 2000);
       } catch (e) {
-        console.error('Copy failed', e);
+        console.error('Copy failed');
       }
       document.body.removeChild(textArea);
     }
@@ -200,7 +231,7 @@ export default function App() {
         <div className="h-10 bg-white/50 border-b border-gray-200 flex items-center justify-between select-none shrink-0">
           <div className="flex items-center pl-4 text-xs text-gray-700 font-medium">
             <Calculator className="w-4 h-4 mr-2 text-blue-600" />
-            宝可梦能力转换器 - 冠军版 v2.1
+            宝可梦能力转换器 - 冠军版 v2.2
           </div>
           <div className="flex h-full">
             <button className="px-4 hover:bg-gray-200 transition-colors flex items-center justify-center"><Minus className="w-4 h-4 text-gray-600" /></button>
@@ -249,7 +280,7 @@ export default function App() {
 
             <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
               <h3 className="text-sm font-bold text-blue-800 mb-3 flex items-center"><Download className="w-4 h-4 mr-2" /> 模版快速导入</h3>
-              <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="在此粘贴配置..." className="w-full h-24 text-xs p-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white/80 resize-none font-mono" />
+              <textarea value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="在此粘贴 PKHeX/Showdown 代码..." className="w-full h-24 text-xs p-3 border border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white/80 resize-none font-mono" />
               <button onClick={handleImport} className="w-full mt-3 bg-blue-600 hover:bg-blue-700 text-white text-xs py-2.5 rounded-lg transition-all font-bold shadow-sm">解析并同步参数</button>
             </div>
           </div>
@@ -295,7 +326,6 @@ export default function App() {
                   onClick={copyToClipboard}
                   className="flex items-center text-xs bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-all shadow-md active:scale-95"
                 >
-                  {/* 使用内联 SVG 替代 Lucide 组件，彻底杜绝图标加载失败导致的渲染崩溃 */}
                   {copySuccess ? (
                     <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
                   ) : (
